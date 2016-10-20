@@ -14,11 +14,14 @@ globals [
   ]
 
 breed [devils devil]
+breed [fem-devils fem-devil]
 
-devils-own [age gender dominant infected]  ;; Age: How old the devils are
-                                           ;; Gender: 1 (Male), 0 (Female)
-                                           ;; Dominant: 1 (Dominant), 0 (Normal)
-                                           ;; Infected: 1 (Infected), 0 (Healthy)
+devils-own [age dominant infected age-of-infection]  ;; Age: How old the devils are
+                                                     ;; Gender: 1 (Male), 0 (Female)
+                                                     ;; Dominant: 1 (Dominant), 0 (Normal)
+                                                     ;; Infected: 1 (Infected), 0 (Healthy)
+
+fem-devils-own [age dominant infected age-of-infection]
 
 to setup
   clear-all
@@ -53,7 +56,6 @@ to setup-devils
     set age 0
     setxy random-xcor random-ycor
     set shape "wolf"
-    set gender 0
     set dominant 0
     set infected 0
 
@@ -62,12 +64,6 @@ to setup-devils
       set dominant 1
       set TOTAL_DOMINANT (TOTAL_DOMINANT + 1)
       set color brown
-    ]
-
-    if (TOTAL_MALES < TOTAL_MALES_ALLOWED)
-    [
-      set TOTAL_MALES (TOTAL_MALES + 1)
-      set gender 1
     ]
 
     if (TOTAL_INFECTED < TOTAL_INFECTED_ALLOWED)
@@ -102,16 +98,13 @@ to move-devils
     wiggle
     forward 0.8
 
-    if any? devils-here
+    if (any? devils-here with [infected = 1])
     [
       if (trigger INFECTION_RATE%)
       [
-        ask devils-here
-        [
-          set TOTAL_INFECTED ( TOTAL_INFECTED + 1 )
-          set color red
-          set infected 1
-        ]
+        set TOTAL_INFECTED ( TOTAL_INFECTED + 1 )
+        set color red
+        set infected 1
       ]
     ]
 
