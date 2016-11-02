@@ -5,23 +5,26 @@ globals [
   TOTAL_INFECTED
 
   TOTAL_HEALTHY
-  TOTAL_DOMINANT
+  TOTAL_POPULATION
 
   TOTAL_MALES_ALLOWED
   TOTAL_MALES
 
   SEASON
+  SEASON_COUNT
+
+  REAL_DEVIL_AGE_LIMIT
   ]
 
 breed [devils devil]
 breed [fem-devils fem-devil]
 
-devils-own [age dominant infected age-of-infection]  ;; Age: How old the devils are
+devils-own [age dominant% infected? age-of-infection]  ;; Age: How old the devils are
                                                      ;; Gender: 1 (Male), 0 (Female)
                                                      ;; Dominant: 1 (Dominant), 0 (Normal)
                                                      ;; Infected: 1 (Infected), 0 (Healthy)
 
-fem-devils-own [age dominant infected age-of-infection]
+fem-devils-own [age dominant% infected? age-of-infection]
 
 to setup
   clear-all
@@ -34,13 +37,10 @@ to setup
   set TOTAL_INFECTED 0
 
   set TOTAL_HEALTHY 0
-  set TOTAL_DOMINANT 0
 
-  print "Total males allowed:"
-  print TOTAL_MALES_ALLOWED
+  set REAL_DEVIL_AGE_LIMIT (MAX_DEVIL_AGE * 400)
 
-  print "Total infected allowed:"
-  print TOTAL_INFECTED_ALLOWED
+  set SEASON 1
 
   setup-devils
 
@@ -49,27 +49,15 @@ end
 
 to setup-devils
   create-devils POPULATION
-  set TOTAL_HEALTHY (POPULATION)
   ask devils
   [
-    set color grey
-    set age 0
-    setxy random-xcor random-ycor
-    set shape "wolf"
-    set dominant 0
-    set infected 0
-
-    if (TOTAL_DOMINANT < DOMINANCE )
-    [
-      set dominant 1
-      set TOTAL_DOMINANT (TOTAL_DOMINANT + 1)
-      set color brown
-    ]
+    add-devil
 
     if (TOTAL_INFECTED < TOTAL_INFECTED_ALLOWED)
     [
       set TOTAL_INFECTED (TOTAL_INFECTED + 1)
-      set infected 1
+      set TOTAL_HEALTHY (TOTAL_HEALTHY - 1)
+      set infected? true
       set color red
     ]
 
@@ -78,54 +66,114 @@ to setup-devils
 
 end
 
+to add-devil
+  set age 0
+  set dominant% random 100
+  set color grey
+  setxy random-xcor random-ycor
+  set infected? false
+  set shape "wolf"
+
+  if (dominant% >= 30)
+  [
+    set color blue
+  ]
+
+  if (dominant% >= 70)
+  [
+    set color brown
+  ]
+
+  set TOTAL_HEALTHY ( TOTAL_HEALTHY + 1 )
+  set TOTAL_POPULATION (TOTAL_POPULATION + 1)
+end
+
 
 
 
 to go
-  move-devils
+  ask devils
+  [
+    move-devils
+  ]
   if not any? turtles [ stop ]
   tick
+
+  set SEASON_COUNT (SEASON_COUNT + 1)
+  if (SEASON_COUNT = 100)
+  [
+    set SEASON_COUNT 0
+
+    if (SEASON = 4)
+    [
+      set SEASON 1
+    ]
+
+    if (SEASON < 4)
+    [
+      set SEASON (SEASON + 1)
+    ]
+  ]
 end
 
 to move-devils
 
-  ask devils
+  if (age >= REAL_DEVIL_AGE_LIMIT) [ kill-devil ]
+  set age ( age + 1 )
+
+  if (SEASON = 3 or SEASON = 4)
   [
-    if age >= MAX_DEVIL_AGE [ die ]
-    set age ( age + 1 )
+    face nearest-of devils
+  ]
 
-    right 180
-    wiggle
-    forward 0.8
+  if (SEASON = 1 or SEASON = 2)
+  [
+     face nearest-of devils
+     right 180
+  ]
 
-    if (any? devils-here with [infected = 1])
+  wiggle
+  forward 0.8
+
+
+  let devil-list devils in-radius 2 with [dominant% < [dominant%] of myself]
+
+  ask devil-list
+  [
+    if ((any? devils with [infected?]) and ([infected? = false] of myself))
     [
-      if (trigger INFECTION_RATE%)
-      [
-        set TOTAL_INFECTED ( TOTAL_INFECTED + 1 )
-        set color red
-        set infected 1
-      ]
-    ]
-
-    if (trigger BIRTHRATE%)
-    [ hatch-devils 1
-      [
-        set TOTAL_HEALTHY (TOTAL_HEALTHY + 1)
-        set age 0
-        set dominant 0
-        set color grey
-        setxy random-xcor random-ycor
-
-        if (trigger CHANCE_FOR_DOMINANCE%)
-        [
-          set dominant 1
-          set color brown
-          set TOTAL_DOMINANT (TOTAL_DOMINANT + 1)
-        ]
-      ]
+      set TOTAL_INFECTED ( TOTAL_INFECTED + 1 )
+      set TOTAL_HEALTHY ( TOTAL_HEALTHY - 1 )
+      set infected? [true] of myself
+      set color [red] of myself
     ]
   ]
+
+
+  if ((SEASON = 3 or SEASON = 4) and (any? devils in-radius 2) and trigger BIRTHRATE%)
+  [ hatch-devils 1
+    [
+      add-devil
+    ]
+  ]
+end
+
+to kill-devil
+  if (infected?)
+  [
+    print "Kill Infected"
+    set TOTAL_INFECTED ( TOTAL_INFECTED - 1 )
+  ]
+
+  if (infected? = false)
+  [
+    print "Kill Healthy"
+    set TOTAL_HEALTHY (TOTAL_HEALTHY - 1)
+  ]
+
+  set TOTAL_POPULATION (TOTAL_POPULATION - 1)
+
+  die
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -173,10 +221,10 @@ NIL
 1
 
 SLIDER
-11
-317
-230
-350
+20
+262
+239
+295
 POPULATION
 POPULATION
 0
@@ -188,55 +236,40 @@ NIL
 HORIZONTAL
 
 SLIDER
-12
-201
-231
-234
-INFECTED%
-INFECTED%
-0
-100
 21
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-12
-246
-230
-279
-INFECTION_RATE%
-INFECTION_RATE%
-1
-20
-10
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-11
-86
-230
-119
-DOMINANCE
-DOMINANCE
+146
+240
+179
+INFECTED%
+INFECTED%
 0
 100
-18
+28
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-13
-453
-230
-486
+21
+191
+239
+224
+INFECTION_RATE%
+INFECTION_RATE%
+1
+20
+20
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+22
+398
+239
+431
 BIRTHRATE%
 BIRTHRATE%
 1
@@ -248,10 +281,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-12
-362
-231
-395
+21
+307
+240
+340
 MALE_PERCENT%
 MALE_PERCENT%
 0
@@ -280,10 +313,10 @@ NIL
 1
 
 SLIDER
-12
-407
-230
-440
+21
+352
+239
+385
 MAX_DEVIL_AGE
 MAX_DEVIL_AGE
 1
@@ -317,38 +350,62 @@ TOTAL_HEALTHY
 11
 
 MONITOR
-984
-147
-1083
-192
-Total Dominant
-TOTAL_DOMINANT
+981
+144
+1081
+189
+Total Males
+TOTAL_MALES
 17
 1
 11
 
-SLIDER
-11
-131
-231
-164
-CHANCE_FOR_DOMINANCE%
-CHANCE_FOR_DOMINANCE%
-1
-5
-3
-1
-1
+BUTTON
+141
+83
+204
+116
+once
+go
 NIL
-HORIZONTAL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+MONITOR
+983
+204
+1085
+249
+Total Population
+TOTAL_POPULATION
+17
+1
+11
 
 MONITOR
 984
-209
-1084
-254
-Total Males
-TOTAL_MALES
+266
+1041
+311
+Season
+SEASON
+17
+1
+11
+
+MONITOR
+985
+326
+1075
+371
+Season Count
+SEASON_COUNT
 17
 1
 11
