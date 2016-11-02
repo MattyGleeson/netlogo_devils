@@ -73,6 +73,7 @@ to add-devil
   setxy random-xcor random-ycor
   set infected? false
   set shape "wolf"
+  set age-of-infection 0
 
   if (dominant% >= 30)
   [
@@ -136,18 +137,36 @@ to move-devils
   forward 0.8
 
 
-  let devil-list devils in-radius 2 with [dominant% < [dominant%] of myself]
+  let devil-list devils in-radius 0.5 with [dominant% < [dominant%] of myself]
+  let infected-devil one-of devil-list with [infected?]
 
-  ask devil-list
+  if (infected?)
   [
-    if ((any? devils with [infected?]) and ([infected? = false] of myself))
+    set age-of-infection (age-of-infection + 1)
+    if (age-of-infection = 200)
     [
-      set TOTAL_INFECTED ( TOTAL_INFECTED + 1 )
-      set TOTAL_HEALTHY ( TOTAL_HEALTHY - 1 )
-      set infected? [true] of myself
-      set color [red] of myself
+      kill-devil
     ]
   ]
+
+  if (infected? = false)
+  [
+    set TOTAL_INFECTED ( TOTAL_INFECTED + 1 )
+    set TOTAL_HEALTHY ( TOTAL_HEALTHY - 1 )
+    set infected? true
+    set color red
+  ]
+
+;;  ask devil-list
+;;  [
+;;    if ((any? devils with [infected?]) and ([infected? = false] of myself))
+;;    [
+;;      set TOTAL_INFECTED ( TOTAL_INFECTED + 1 )
+;;      set TOTAL_HEALTHY ( TOTAL_HEALTHY - 1 )
+;;      set infected? [true] of myself
+;;      set color [red] of myself
+;;    ]
+;;  ]
 
 
   if ((SEASON = 3 or SEASON = 4) and (any? devils in-radius 2) and trigger BIRTHRATE%)
@@ -378,10 +397,10 @@ NIL
 1
 
 MONITOR
-983
-204
-1085
-249
+835
+19
+937
+64
 Total Population
 TOTAL_POPULATION
 17
@@ -389,10 +408,10 @@ TOTAL_POPULATION
 11
 
 MONITOR
-984
-266
-1041
-311
+836
+81
+893
+126
 Season
 SEASON
 17
@@ -400,15 +419,33 @@ SEASON
 11
 
 MONITOR
-985
-326
-1075
-371
+837
+141
+927
+186
 Season Count
 SEASON_COUNT
 17
 1
 11
+
+PLOT
+855
+208
+1055
+358
+Population to Season
+SEASON
+TOTAL_POPULATION
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plot count turtles"
 
 @#$#@#$#@
 ## WHAT IS IT?
