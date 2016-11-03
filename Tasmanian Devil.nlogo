@@ -1,5 +1,11 @@
 __includes [ "sxl-utils.nls" ]
 
+
+;;  365 ticks is a year
+;;  1825 for devil death
+;;  180 tcks until infection kills
+
+
 globals [
   TOTAL_INFECTED_ALLOWED
   TOTAL_INFECTED
@@ -10,37 +16,34 @@ globals [
   TOTAL_MALES_ALLOWED
   TOTAL_MALES
 
-  SEASON
-  SEASON_COUNT
-
   REAL_DEVIL_AGE_LIMIT
+  YEAR
+  DAYS
+  MATING_SEASON?
+
+  AVG_DOM
   ]
 
 breed [devils devil]
-breed [fem-devils fem-devil]
 
-devils-own [age dominant% infected? age-of-infection]  ;; Age: How old the devils are
-                                                     ;; Gender: 1 (Male), 0 (Female)
-                                                     ;; Dominant: 1 (Dominant), 0 (Normal)
-                                                     ;; Infected: 1 (Infected), 0 (Healthy)
-
-fem-devils-own [age dominant% infected? age-of-infection]
+devils-own [age dominant% infected? age-of-infection mated-on]   ;; Age: How old the devils are
+                                                                 ;; Gender: 1 (Male), 0 (Female)
+                                                                 ;; Dominant: 1 (Dominant), 0 (Normal)
+                                                                 ;; Infected: 1 (Infected), 0 (Healthy)
 
 to setup
   clear-all
   ask patches [set pcolor white]
 
-
-  set TOTAL_MALES_ALLOWED ( round ( ( MALE_PERCENT% / 100) * POPULATION ))
-  set TOTAL_MALES 0
   set TOTAL_INFECTED_ALLOWED ( round ( ( INFECTED% / 100) * POPULATION ))
   set TOTAL_INFECTED 0
 
   set TOTAL_HEALTHY 0
 
-  set REAL_DEVIL_AGE_LIMIT (MAX_DEVIL_AGE * 400)
+  set REAL_DEVIL_AGE_LIMIT (MAX_DEVIL_AGE * 365)
 
-  set SEASON 1
+  set DAYS 182
+  set MATING_SEASON? false
 
   setup-devils
 
@@ -51,7 +54,8 @@ to setup-devils
   create-devils POPULATION
   ask devils
   [
-    add-devil
+    add-devil-props
+    set age 365
 
     if (TOTAL_INFECTED < TOTAL_INFECTED_ALLOWED)
     [
@@ -59,6 +63,8 @@ to setup-devils
       set TOTAL_HEALTHY (TOTAL_HEALTHY - 1)
       set infected? true
       set color red
+
+      set age-of-infection random 180          ;;  This stops all the infected devils from dieing out at the same time as the first season change at 180 ticks.
     ]
 
   ]
@@ -66,7 +72,7 @@ to setup-devils
 
 end
 
-to add-devil
+to add-devil-props
   set age 0
   set dominant% random 100
   set color grey
@@ -74,6 +80,7 @@ to add-devil
   set infected? false
   set shape "wolf"
   set age-of-infection 0
+  set mated-on -1
 
   if (dominant% >= 30)
   [
@@ -100,38 +107,54 @@ to go
   if not any? turtles [ stop ]
   tick
 
-  set SEASON_COUNT (SEASON_COUNT + 1)
-  if (SEASON_COUNT = 100)
+  get-dominance%
+
+  set DAYS (DAYS + 1)
+
+  if (DAYS >= 180)
   [
-    set SEASON_COUNT 0
-
-    if (SEASON = 4)
-    [
-      set SEASON 1
-    ]
-
-    if (SEASON < 4)
-    [
-      set SEASON (SEASON + 1)
-    ]
+    set MATING_SEASON? true
   ]
+
+  if (DAYS = 365)
+  [
+    set YEAR (YEAR + 1)
+    set DAYS 0
+    set MATING_SEASON? false
+  ]
+
+end
+
+to go-for
+  if (ticks = (365 * 2)) [ stop ]
+  go
 end
 
 to move-devils
 
-  if (age >= REAL_DEVIL_AGE_LIMIT) [ kill-devil ]
+  if (age = REAL_DEVIL_AGE_LIMIT) [ kill-devil ]
+
+  if (infected?)
+  [
+    if (age-of-infection >= (0.5 * 365))
+    [
+      kill-devil
+    ]
+    set age-of-infection (age-of-infection + 1)
+  ]
+
   set age ( age + 1 )
 
-  if (SEASON = 3 or SEASON = 4)
-  [
+;;  if (SEASON = 3 or SEASON = 4)
+;;  [
     face nearest-of devils
-  ]
+;;  ]
 
-  if (SEASON = 1 or SEASON = 2)
-  [
-     face nearest-of devils
-     right 180
-  ]
+;;  if (SEASON = 1 or SEASON = 2)
+;;  [
+;;     face nearest-of devils
+;;     right 180
+;;  ]
 
   wiggle
   forward 0.8
@@ -140,41 +163,33 @@ to move-devils
   let devil-list devils in-radius 0.5 with [dominant% < [dominant%] of myself]
   let infected-devil one-of devil-list with [infected?]
 
-  if (infected?)
-  [
-    set age-of-infection (age-of-infection + 1)
-    if (age-of-infection = 200)
-    [
-      kill-devil
-    ]
-  ]
-
-  if (infected? = false)
+  if ((infected? = false) and (infected-devil != nobody) and trigger INFECTION_RATE%)
   [
     set TOTAL_INFECTED ( TOTAL_INFECTED + 1 )
     set TOTAL_HEALTHY ( TOTAL_HEALTHY - 1 )
     set infected? true
     set color red
+    set age-of-infection 0
   ]
 
-;;  ask devil-list
-;;  [
-;;    if ((any? devils with [infected?]) and ([infected? = false] of myself))
-;;    [
-;;      set TOTAL_INFECTED ( TOTAL_INFECTED + 1 )
-;;      set TOTAL_HEALTHY ( TOTAL_HEALTHY - 1 )
-;;      set infected? [true] of myself
-;;      set color [red] of myself
-;;    ]
-;;  ]
+
+;; Each devil has about 4 litters in their life of about 20 - 30 devils. Only about 4 survive
 
 
-  if ((SEASON = 3 or SEASON = 4) and (any? devils in-radius 2) and trigger BIRTHRATE%)
-  [ hatch-devils 1
+  if (MATING_SEASON?)
+  [
+
+  let devil-mating-list devils in-radius 0.5 with [ age >= 365 and mated-on = -1 or ((mated-on + 365) >= ticks)]
+
+  if (age >= 365 and (mated-on = -1 or ((mated-on + 365) >= ticks)) and trigger BIRTHRATE%)
+  [
+    hatch-devils 1
     [
-      add-devil
+      add-devil-props
     ]
   ]
+  ]
+
 end
 
 to kill-devil
@@ -193,6 +208,14 @@ to kill-devil
   set TOTAL_POPULATION (TOTAL_POPULATION - 1)
 
   die
+end
+
+to get-dominance%
+  set AVG_DOM 0
+  ask devils [
+    set AVG_DOM (AVG_DOM + dominant%)
+  ]
+  set AVG_DOM (AVG_DOM / count devils)
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -223,10 +246,10 @@ ticks
 30.0
 
 BUTTON
-133
-30
-229
-63
+9
+82
+105
+115
 Go
 go
 T
@@ -248,7 +271,7 @@ POPULATION
 POPULATION
 0
 100
-45
+100
 1
 1
 NIL
@@ -263,7 +286,7 @@ INFECTED%
 INFECTED%
 0
 100
-28
+10
 1
 1
 NIL
@@ -277,8 +300,8 @@ SLIDER
 INFECTION_RATE%
 INFECTION_RATE%
 1
-20
-20
+100
+10
 1
 1
 NIL
@@ -293,22 +316,7 @@ BIRTHRATE%
 BIRTHRATE%
 1
 20
-10
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-21
-307
-240
-340
-MALE_PERCENT%
-MALE_PERCENT%
-0
-100
-52
+2
 1
 1
 NIL
@@ -339,18 +347,18 @@ SLIDER
 MAX_DEVIL_AGE
 MAX_DEVIL_AGE
 1
-20
-10
+5
+5
 1
 1
 NIL
 HORIZONTAL
 
 MONITOR
-985
-18
-1083
-63
+943
+20
+1041
+65
 Total Infected
 TOTAL_INFECTED
 17
@@ -358,10 +366,10 @@ TOTAL_INFECTED
 11
 
 MONITOR
-984
-83
-1082
-128
+942
+85
+1040
+130
 Total Healthy
 TOTAL_HEALTHY
 17
@@ -369,10 +377,10 @@ TOTAL_HEALTHY
 11
 
 MONITOR
-981
-144
-1081
-189
+939
+146
+1039
+191
 Total Males
 TOTAL_MALES
 17
@@ -380,10 +388,10 @@ TOTAL_MALES
 11
 
 BUTTON
-141
-83
-204
-116
+245
+81
+308
+114
 once
 go
 NIL
@@ -412,8 +420,8 @@ MONITOR
 81
 893
 126
-Season
-SEASON
+Days
+DAYS
 17
 1
 11
@@ -423,19 +431,19 @@ MONITOR
 141
 927
 186
-Season Count
-SEASON_COUNT
+Year
+YEAR
 17
 1
 11
 
 PLOT
-855
-208
-1055
-358
+1052
+18
+1499
+364
 Population to Season
-SEASON
+DAYS
 TOTAL_POPULATION
 0.0
 10.0
@@ -446,6 +454,54 @@ false
 "" ""
 PENS
 "default" 1.0 0 -16777216 true "" "plot count turtles"
+"pen-1" 1.0 0 -7500403 true "" "plot TOTAL_HEALTHY"
+"pen-2" 1.0 0 -2674135 true "" "plot TOTAL_INFECTED"
+
+PLOT
+1299
+378
+1499
+528
+plot 1
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plot AVG_DOM"
+
+MONITOR
+842
+256
+936
+301
+Mating Season
+MATING_SEASON?
+17
+1
+11
+
+BUTTON
+122
+83
+235
+116
+Go For 2 Years
+go-for
+T
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
