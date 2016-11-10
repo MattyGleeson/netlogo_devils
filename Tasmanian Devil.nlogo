@@ -27,9 +27,10 @@ globals [
 breed [devils devil]
 
 devils-own [age dominant% infected? age-of-infection mated-on]   ;; Age: How old the devils are
-                                                                 ;; Gender: 1 (Male), 0 (Female)
-                                                                 ;; Dominant: 1 (Dominant), 0 (Normal)
-                                                                 ;; Infected: 1 (Infected), 0 (Healthy)
+                                                                 ;; Dominant%: 0-100 of how dominant they are
+                                                                 ;; Infected?: Are they infected
+                                                                 ;; Age-of-infection: How old the infection is
+                                                                 ;; Have the devils mated and when (Can only mate once every year)
 
 to setup
   clear-all
@@ -64,7 +65,7 @@ to setup-devils
       set infected? true
       set color red
 
-      set age-of-infection random 180          ;;  This stops all the infected devils from dieing out at the same time as the first season change at 180 ticks.
+      set age-of-infection random 180          ;;  This stops all the infected devils from dying out at the same time as the first season change is at 180 ticks.
     ]
 
   ]
@@ -160,8 +161,8 @@ to move-devils
   forward 0.8
 
 
-  let devil-list devils in-radius 0.5 with [dominant% < [dominant%] of myself]
-  let infected-devil one-of devil-list with [infected?]
+  let devil-list devils in-radius 0.5 with [dominant% < [dominant%] of myself]   ;; Get all devils in radius with a lower dominance
+  let infected-devil one-of devil-list with [infected?]                          ;; Get one of the less dominant devils that is infected
 
   if ((infected? = false) and (infected-devil != nobody) and trigger INFECTION_RATE%)
   [
@@ -179,15 +180,16 @@ to move-devils
   if (MATING_SEASON?)
   [
 
-  let devil-mating-list devils in-radius 0.5 with [ age >= 365 and mated-on = -1 or ((mated-on + 365) >= ticks)]
+    let devil-mating-list devils in-radius 0.5 with [ age >= 365 and mated-on = -1 or ((mated-on + 365) >= ticks)]   ;; Gets a list of devils in the radius that are able to mate
 
-  if (age >= 365 and (mated-on = -1 or ((mated-on + 365) >= ticks)) and trigger BIRTHRATE%)
-  [
-    hatch-devils 1
+    if (age >= 365 and (mated-on = -1 or ((mated-on + 365) >= ticks)) and trigger BIRTHRATE%)
     [
-      add-devil-props
+      set mated-on ticks
+      hatch-devils 1
+      [
+        add-devil-props
+      ]
     ]
-  ]
   ]
 
 end
@@ -195,13 +197,11 @@ end
 to kill-devil
   if (infected?)
   [
-    print "Kill Infected"
     set TOTAL_INFECTED ( TOTAL_INFECTED - 1 )
   ]
 
   if (infected? = false)
   [
-    print "Kill Healthy"
     set TOTAL_HEALTHY (TOTAL_HEALTHY - 1)
   ]
 
@@ -286,7 +286,7 @@ INFECTED%
 INFECTED%
 0
 100
-10
+20
 1
 1
 NIL
@@ -301,7 +301,7 @@ INFECTION_RATE%
 INFECTION_RATE%
 1
 100
-10
+50
 1
 1
 NIL
@@ -316,7 +316,7 @@ BIRTHRATE%
 BIRTHRATE%
 1
 20
-2
+1
 1
 1
 NIL
@@ -372,17 +372,6 @@ MONITOR
 130
 Total Healthy
 TOTAL_HEALTHY
-17
-1
-11
-
-MONITOR
-939
-146
-1039
-191
-Total Males
-TOTAL_MALES
 17
 1
 11
@@ -462,13 +451,13 @@ PLOT
 378
 1499
 528
-plot 1
-NIL
-NIL
+Average Population Dominance
+Days
+Dominance %
 0.0
 10.0
 0.0
-10.0
+100.0
 true
 false
 "" ""
