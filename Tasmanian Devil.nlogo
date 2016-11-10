@@ -146,16 +146,19 @@ to move-devils
 
   set age ( age + 1 )
 
-;;  if (SEASON = 3 or SEASON = 4)
-;;  [
+  if (MATING_SEASON?)
+  [
     face nearest-of devils
-;;  ]
+  ]
 
-;;  if (SEASON = 1 or SEASON = 2)
-;;  [
-;;     face nearest-of devils
-;;     right 180
-;;  ]
+
+  if (MATING_SEASON? = false)
+  [
+    face nearest-of devils
+    right 180
+  ]
+
+
 
   wiggle
   forward 0.8
@@ -301,7 +304,7 @@ INFECTION_RATE%
 INFECTION_RATE%
 1
 100
-50
+10
 1
 1
 NIL
@@ -355,9 +358,9 @@ NIL
 HORIZONTAL
 
 MONITOR
-943
+941
 20
-1041
+1039
 65
 Total Infected
 TOTAL_INFECTED
@@ -366,10 +369,10 @@ TOTAL_INFECTED
 11
 
 MONITOR
-942
-85
-1040
-130
+940
+77
+1038
+122
 Total Healthy
 TOTAL_HEALTHY
 17
@@ -394,9 +397,9 @@ NIL
 1
 
 MONITOR
-835
+824
 19
-937
+926
 64
 Total Population
 TOTAL_POPULATION
@@ -405,10 +408,10 @@ TOTAL_POPULATION
 11
 
 MONITOR
-836
-81
-893
-126
+825
+77
+925
+122
 Days
 DAYS
 17
@@ -416,10 +419,10 @@ DAYS
 11
 
 MONITOR
-837
-141
-927
-186
+826
+135
+925
+180
 Year
 YEAR
 17
@@ -465,10 +468,10 @@ PENS
 "default" 1.0 0 -16777216 true "" "plot AVG_DOM"
 
 MONITOR
-842
-256
-936
-301
+941
+135
+1039
+180
 Mating Season
 MATING_SEASON?
 17
