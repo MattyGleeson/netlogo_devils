@@ -22,6 +22,7 @@ globals [
   MATING_SEASON?
 
   AVG_DOM
+  TOTAL_INFECTED_IN_RUN
   ]
 
 breed [devils devil]
@@ -30,7 +31,7 @@ devils-own [age dominant% infected? age-of-infection mated-on]   ;; Age: How old
                                                                  ;; Dominant%: 0-100 of how dominant they are
                                                                  ;; Infected?: Are they infected
                                                                  ;; Age-of-infection: How old the infection is
-                                                                 ;; Have the devils mated and when (Can only mate once every year)
+                                                                 ;; mated-on: Have the devils mated and when (Can only mate once every year)
 
 to setup
   clear-all
@@ -43,7 +44,7 @@ to setup
 
   set REAL_DEVIL_AGE_LIMIT (MAX_DEVIL_AGE * 365)
 
-  set DAYS 182
+;;  set DAYS 182
   set MATING_SEASON? false
 
   setup-devils
@@ -60,17 +61,10 @@ to setup-devils
 
     if (TOTAL_INFECTED < TOTAL_INFECTED_ALLOWED)
     [
-      set TOTAL_INFECTED (TOTAL_INFECTED + 1)
-      set TOTAL_HEALTHY (TOTAL_HEALTHY - 1)
-      set infected? true
-      set color red
-
+      infect-devil
       set age-of-infection random 180          ;;  This stops all the infected devils from dying out at the same time as the first season change is at 180 ticks.
     ]
-
   ]
-
-
 end
 
 to add-devil-props
@@ -97,6 +91,30 @@ to add-devil-props
   set TOTAL_POPULATION (TOTAL_POPULATION + 1)
 end
 
+to infect-devil
+  set TOTAL_INFECTED ( TOTAL_INFECTED + 1 )
+  set TOTAL_INFECTED_IN_RUN ( TOTAL_INFECTED_IN_RUN + 1 )
+  set TOTAL_HEALTHY ( TOTAL_HEALTHY - 1 )
+  set infected? true
+  set color red
+  set age-of-infection 0
+end
+
+to kill-devil
+  if (infected?)
+  [
+    set TOTAL_INFECTED ( TOTAL_INFECTED - 1 )
+  ]
+
+  if (infected? = false)
+  [
+    set TOTAL_HEALTHY (TOTAL_HEALTHY - 1)
+  ]
+
+  set TOTAL_POPULATION (TOTAL_POPULATION - 1)
+
+  die
+end
 
 
 
@@ -106,8 +124,27 @@ to go
     move-devils
   ]
   if not any? turtles [ stop ]
+  if (TOTAL_POPULATION = 0) [ stop ]
   tick
 
+  go-after-checks
+
+end
+
+to go-for
+  ask devils
+  [
+    move-devils
+  ]
+  if not any? turtles [ stop ]
+  if (TOTAL_POPULATION = 0) [ stop ]
+  if (ticks = (365 * 2)) [ stop ]
+  tick
+
+  go-after-checks
+end
+
+to go-after-checks
   get-dominance%
 
   set DAYS (DAYS + 1)
@@ -123,12 +160,6 @@ to go
     set DAYS 0
     set MATING_SEASON? false
   ]
-
-end
-
-to go-for
-  if (ticks = (365 * 2)) [ stop ]
-  go
 end
 
 to move-devils
@@ -150,39 +181,29 @@ to move-devils
   [
     face nearest-of devils
   ]
-
-
+                                      ;; Devils group together in mating season and then disperse
   if (MATING_SEASON? = false)
   [
     face nearest-of devils
     right 180
   ]
 
-
-
   wiggle
   forward 0.8
 
+  let infected-devils devils in-radius 0.5 with [infected?]
 
-  let devil-list devils in-radius 0.5 with [dominant% < [dominant%] of myself]   ;; Get all devils in radius with a lower dominance
-  let infected-devil one-of devil-list with [infected?]                          ;; Get one of the less dominant devils that is infected
-
-  if ((infected? = false) and (infected-devil != nobody) and trigger INFECTION_RATE%)
+  if ((infected? = false) and (any? infected-devils with [dominant% < [dominant%] of myself]) and trigger INFECTION_RATE%)
   [
-    set TOTAL_INFECTED ( TOTAL_INFECTED + 1 )
-    set TOTAL_HEALTHY ( TOTAL_HEALTHY - 1 )
-    set infected? true
-    set color red
-    set age-of-infection 0
+    infect-devil
   ]
-
-
-;; Each devil has about 4 litters in their life of about 20 - 30 devils. Only about 4 survive
-
+  if ((infected? = false) and (any? infected-devils with [dominant% >= [dominant%] of myself]) and trigger (INFECTION_RATE% / 2))
+  [
+    infect-devil
+  ]
 
   if (MATING_SEASON?)
   [
-
     let devil-mating-list devils in-radius 0.5 with [ age >= 365 and mated-on = -1 or ((mated-on + 365) >= ticks)]   ;; Gets a list of devils in the radius that are able to mate
 
     if (age >= 365 and (mated-on = -1 or ((mated-on + 365) >= ticks)) and trigger BIRTHRATE%)
@@ -195,22 +216,6 @@ to move-devils
     ]
   ]
 
-end
-
-to kill-devil
-  if (infected?)
-  [
-    set TOTAL_INFECTED ( TOTAL_INFECTED - 1 )
-  ]
-
-  if (infected? = false)
-  [
-    set TOTAL_HEALTHY (TOTAL_HEALTHY - 1)
-  ]
-
-  set TOTAL_POPULATION (TOTAL_POPULATION - 1)
-
-  die
 end
 
 to get-dominance%
@@ -289,7 +294,7 @@ INFECTED%
 INFECTED%
 0
 100
-20
+100
 1
 1
 NIL
@@ -304,7 +309,7 @@ INFECTION_RATE%
 INFECTION_RATE%
 1
 100
-10
+90
 1
 1
 NIL
@@ -494,6 +499,17 @@ NIL
 NIL
 NIL
 1
+
+MONITOR
+1144
+379
+1284
+424
+Total Infected in Run
+TOTAL_INFECTED_IN_RUN
+17
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -842,6 +858,28 @@ NetLogo 5.3.1
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
+<experiments>
+  <experiment name="experiment" repetitions="1" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go-for</go>
+    <metric>TOTAL_INFECTED</metric>
+    <metric>TOTAL_INFECTED_IN_RUN</metric>
+    <metric>TOTAL_POPULATION</metric>
+    <enumeratedValueSet variable="MAX_DEVIL_AGE">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="POPULATION">
+      <value value="100"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="BIRTHRATE%">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="INFECTED%">
+      <value value="100"/>
+    </enumeratedValueSet>
+    <steppedValueSet variable="INFECTION_RATE%" first="0" step="10" last="100"/>
+  </experiment>
+</experiments>
 @#$#@#$#@
 @#$#@#$#@
 default
